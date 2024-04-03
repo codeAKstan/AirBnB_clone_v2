@@ -1,32 +1,49 @@
 #!/usr/bin/env bash
-# Script to set up web servers for the deployment of web_static
 
-# Check if Nginx is installed
-if ! dpkg -l nginx >/dev/null 2>&1; then
-    sudo apt-get update -y -qq
-    sudo apt-get install -y nginx
-fi
+# Install Nginx if it's not already installed
+apt-get update
+apt-get -y install nginx
 
-# Create directories if they don't exist
-sudo mkdir -p /data/web_static/releases/test /data/web_static/shared/
+# Create necessary directories if they don't exist
+mkdir -p /data/web_static/releases/test
+mkdir -p /data/web_static/shared
 
-# Create a fake HTML file
-echo "<h2 style='text-align:center'>Welcome to k_mmadu.tech-hub</h2>" | sudo tee /data/web_static/releases/test/index.html >/dev/null
+# Create a fake HTML file for testing Nginx configuration
+echo "<html>
+  <head>
+  </head>
+  <body>
+    Holberton School
+  </body>
+</html>" > /data/web_static/releases/test/index.html
 
-# Create a symbolic link
-sudo ln -sf /data/web_static/releases/test/ /data/web_static/current
+# Create or update symbolic link
+rm -rf /data/web_static/current
+ln -s /data/web_static/releases/test/ /data/web_static/current
 
-# Give ownership to ubuntu user and group
-sudo chown -R ubuntu:ubuntu /data/
+# Give ownership of the /data/ folder to the ubuntu user and group
+chown -R ubuntu:ubuntu /data/
 
-# Backup Nginx configuration
-sudo cp /etc/nginx/sites-available/default /etc/nginx/sites-available/default.backup
+# Update Nginx configuration to serve the content of /data/web_static/current/ to hbnb_static
+config_path="/etc/nginx/sites-available/default"
+echo "
+server {
+    listen 80;
+    listen [::]:80 default_server;
 
-# Update the Nginx configuration
-sudo sed -i '/^server {/a \ \n\tlocation /hbnb_static/ {\n\t\talias /data/web_static/current/;\n\t}\n' /etc/nginx/sites-available/default
+    server_name _;
+
+    location /hbnb_static/ {
+        alias /data/web_static/current/;
+    }
+
+    location / {
+        try_files \$uri \$uri/ =404;
+    }
+}" > "$config_path"
 
 # Restart Nginx
-sudo service nginx restart
+service nginx restart
 
-echo "Completed without error"
+exit 0
 
